@@ -50,7 +50,7 @@ include_directories (src)
 add_subdirectory (src)
 
 set(dbms_headers)
-set(dbms_sources)
+set(dbms_sources src/Storages/Page/V3/Remote/RemoteDataInfo.h)
 
 include(${TiFlash_SOURCE_DIR}/cmake/dbms_glob_sources.cmake)
 

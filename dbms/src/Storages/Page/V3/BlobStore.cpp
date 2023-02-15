@@ -363,6 +363,10 @@ BlobStore<Trait>::write(typename Trait::WriteBatch & wb, const WriteLimiterPtr &
             edit.put(wb.getFullPageId(write.page_id), entry);
             break;
         }
+        case WriteBatchWriteType::PUT_REMOTE:
+        {
+            PageEntryV3 entry;
+        }
         case WriteBatchWriteType::DEL:
         {
             edit.del(wb.getFullPageId(write.page_id));

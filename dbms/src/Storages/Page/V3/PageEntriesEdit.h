@@ -110,6 +110,7 @@ enum class EditRecordType
     VAR_REF,
     VAR_EXTERNAL,
     VAR_DELETE,
+    PUT_REMOTE,
 };
 
 inline const char * typeToString(EditRecordType t)
@@ -134,6 +135,8 @@ inline const char * typeToString(EditRecordType t)
         return "VAR_EXT";
     case EditRecordType::VAR_DELETE:
         return "VAR_DEL";
+    case EditRecordType::PUT_REMOTE:
+        return "PUT_REMOTE";
     default:
         return "INVALID";
     }
@@ -192,6 +195,15 @@ public:
     {
         EditRecord record{};
         record.type = EditRecordType::PUT;
+        record.page_id = page_id;
+        record.entry = entry;
+        records.emplace_back(record);
+    }
+
+    void putRemote(const PageId & page_id, const PageEntryV3 & entry)
+    {
+        EditRecord record{};
+        record.type = EditRecordType::PUT_REMOTE;
         record.page_id = page_id;
         record.entry = entry;
         records.emplace_back(record);

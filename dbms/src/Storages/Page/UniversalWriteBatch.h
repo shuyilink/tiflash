@@ -72,6 +72,8 @@ private:
         UInt64 page_offset;
         UInt64 page_checksum;
         PageFileIdAndLevel target_file_id;
+
+        std::optional<PS::V3::RemoteDataLocation> remote_data_location = std::nullopt;
     };
     using Writes = std::vector<Write>;
 
@@ -102,6 +104,7 @@ public:
                 .page_offset = w.page_offset,
                 .page_checksum = w.page_checksum,
                 .target_file_id = w.target_file_id,
+                .remote_data_location = w.remote_data_location,
             });
         }
         us_batch.total_data_size = batch.getTotalDataSize();
@@ -139,6 +142,13 @@ public:
     {
         auto buffer_ptr = std::make_shared<ReadBufferFromOwnString>(data);
         putPage(page_id, tag, buffer_ptr, data.size());
+    }
+
+    void putRemotePage(UniversalPageId page_id, UInt64 tag, const PS::V3::RemoteDataLocation & data_location, PageFieldOffsetChecksums && offset_and_checksums = {})
+    {
+        Write w{WriteBatchWriteType::PUT_REMOTE, page_id, tag, nullptr, data_location.size_in_file, 0, std::move(offset_and_checksums), 0, 0, {}, data_location};
+        total_data_size += data_location.size_in_file;
+        writes.emplace_back(std::move(w));
     }
 
     void putExternal(UniversalPageId page_id, UInt64 tag)
