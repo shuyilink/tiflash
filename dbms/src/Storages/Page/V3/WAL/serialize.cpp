@@ -327,8 +327,6 @@ String Serializer::serializeTo(const PageEntriesEdit & edit)
         case EditRecordType::VAR_EXTERNAL:
             serializePutExternalTo(record, buf);
             break;
-        case EditRecordType::PUT_REMOTE:
-            throw Exception("", ErrorCodes::LOGICAL_ERROR);
         }
     }
     return buf.releaseStr();
@@ -374,8 +372,6 @@ String Serializer::serializeTo(const PageEntriesEdit & edit)
         case EditRecordType::VAR_EXTERNAL:
             serializePutExternalTo(record, buf);
             break;
-        case EditRecordType::PUT_REMOTE:
-            throw Exception("", ErrorCodes::LOGICAL_ERROR);
         }
     }
     return buf.releaseStr();

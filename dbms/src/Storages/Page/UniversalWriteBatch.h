@@ -146,8 +146,7 @@ public:
 
     void putRemotePage(UniversalPageId page_id, UInt64 tag, const PS::V3::RemoteDataLocation & data_location, PageFieldOffsetChecksums && offset_and_checksums = {})
     {
-        Write w{WriteBatchWriteType::PUT_REMOTE, page_id, tag, nullptr, data_location.size_in_file, 0, std::move(offset_and_checksums), 0, 0, {}, data_location};
-        total_data_size += data_location.size_in_file;
+        Write w{WriteBatchWriteType::PUT_REMOTE, page_id, tag, nullptr, /* data_size */ 0, 0, std::move(offset_and_checksums), 0, 0, {}, data_location};
         writes.emplace_back(std::move(w));
     }
 

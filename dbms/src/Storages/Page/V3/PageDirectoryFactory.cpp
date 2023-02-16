@@ -223,8 +223,6 @@ void PageDirectoryFactory<Trait>::applyRecord(
             }
             break;
         }
-        case EditRecordType::PUT_REMOTE:
-            throw Exception("", ErrorCodes::LOGICAL_ERROR);
         }
     }
     catch (DB::Exception & e)

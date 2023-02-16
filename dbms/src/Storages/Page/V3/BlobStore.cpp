@@ -267,10 +267,8 @@ BlobStore<Trait>::write(typename Trait::WriteBatch & wb, const WriteLimiterPtr &
             {
                 PageEntryV3 entry;
                 entry.file_id = INVALID_BLOBFILE_ID;
-                //                entry.size = write.remote_data_location->size_in_file;
-                entry.size = 0;
+                entry.size = write.remote_data_location->size_in_file;
                 entry.tag = write.tag;
-                // TODO: read checksum?
                 entry.remote_info = RemoteDataInfo{
                     .data_location = *write.remote_data_location,
                     .is_local_data_reclaimed = true,
@@ -280,7 +278,7 @@ BlobStore<Trait>::write(typename Trait::WriteBatch & wb, const WriteLimiterPtr &
                     // we can swap from WriteBatch instead of copying
                     entry.field_offsets.swap(write.offsets);
                 }
-                edit.putRemote(wb.getFullPageId(write.page_id), entry);
+                edit.put(wb.getFullPageId(write.page_id), entry);
                 break;
             }
             case WriteBatchWriteType::DEL:
@@ -388,10 +386,8 @@ BlobStore<Trait>::write(typename Trait::WriteBatch & wb, const WriteLimiterPtr &
         {
             PageEntryV3 entry;
             entry.file_id = INVALID_BLOBFILE_ID;
-//            entry.size = write.remote_data_location->size_in_file;
-            entry.size = 0;
+            entry.size = write.remote_data_location->size_in_file;
             entry.tag = write.tag;
-            // TODO: read checksum?
             entry.remote_info = RemoteDataInfo{
                 .data_location = *write.remote_data_location,
                 .is_local_data_reclaimed = true,
@@ -401,7 +397,7 @@ BlobStore<Trait>::write(typename Trait::WriteBatch & wb, const WriteLimiterPtr &
                 // we can swap from WriteBatch instead of copying
                 entry.field_offsets.swap(write.offsets);
             }
-            edit.putRemote(wb.getFullPageId(write.page_id), entry);
+            edit.put(wb.getFullPageId(write.page_id), entry);
             break;
         }
         case WriteBatchWriteType::DEL:
