@@ -454,10 +454,8 @@ Segment::SegmentMetaInfos Segment::restoreAllSegmentsMetaInfo( //
         Segment::SegmentMetaInfo segment_info;
         auto target_id = StorageReader::toFullUniversalPageId(getStoragePrefix(TableStorageTag::Meta), ns_id, target_segment_id);
         auto page = temp_ps->read(target_id);
-        RUNTIME_CHECK(page.isValid());
-        auto [buf, buf_size, _] = PS::V3::CheckpointPageManager::getReadBuffer(page, checkpoint_info.checkpoint_data_dir);
-        readSegmentMetaInfo(*buf, segment_info);
-        RUNTIME_CHECK(buf->count(), buf_size);
+        ReadBufferFromMemory buf(page.data.begin(), page.data.size());
+        readSegmentMetaInfo(buf, segment_info);
 
         target_segment_id = segment_info.next_segment_id;
         if (!(segment_info.rowkey_range.shrink(range).none()))

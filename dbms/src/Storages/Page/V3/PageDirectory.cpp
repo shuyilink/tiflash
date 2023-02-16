@@ -1510,6 +1510,9 @@ void PageDirectory<Trait>::apply(typename Trait::PageEntriesEdit && edit, const 
                 case EditRecordType::PUT:
                     version_list->createNewEntry(r.version, r.entry);
                     break;
+                case EditRecordType::PUT_REMOTE:
+                    version_list->createNewEntry(r.version, r.entry);
+                    break;
                 case EditRecordType::DEL:
                     version_list->createDelete(r.version);
                     break;

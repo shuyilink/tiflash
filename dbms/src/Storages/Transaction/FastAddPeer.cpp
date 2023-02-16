@@ -145,12 +145,7 @@ std::optional<RemoteMeta> fetchRemotePeerMeta(Context & context, const std::stri
         auto page = local_ps->read(apply_state_key, nullptr, {}, /* throw_on_not_exist */ false);
         if (page.isValid())
         {
-            auto [buf, buf_size, _] = PS::V3::CheckpointPageManager::getReadBuffer(page, checkpoint_data_dir);
-            std::string value;
-            value.resize(buf_size);
-            auto n = buf->readBig(value.data(), buf_size);
-            RUNTIME_CHECK(n == buf_size);
-            remote_meta.apply_state.ParseFromArray(value.data(), value.size());
+            remote_meta.apply_state.ParseFromArray(page.data.begin(), page.data.size()));
         }
         else
         {
@@ -163,12 +158,7 @@ std::optional<RemoteMeta> fetchRemotePeerMeta(Context & context, const std::stri
         auto page = local_ps->read(region_state_key, nullptr, {}, /* throw_on_not_exist */ false);
         if (page.isValid())
         {
-            auto [buf, buf_size, _] = PS::V3::CheckpointPageManager::getReadBuffer(page, checkpoint_data_dir);
-            std::string value;
-            value.resize(buf_size);
-            auto n = buf->readBig(value.data(), buf_size);
-            RUNTIME_CHECK(n == buf_size);
-            remote_meta.region_state.ParseFromArray(value.data(), value.size());
+            remote_meta.region_state.ParseFromArray(page.data.begin(), page.data.size());
         }
         else
         {
@@ -181,9 +171,8 @@ std::optional<RemoteMeta> fetchRemotePeerMeta(Context & context, const std::stri
         auto page = local_ps->read(region_key, nullptr, {}, /* throw_on_not_exist */ false);
         if (page.isValid())
         {
-            auto [buf, buf_size, _] = PS::V3::CheckpointPageManager::getReadBuffer(page, checkpoint_data_dir);
-            remote_meta.region = Region::deserialize(*buf, proxy_helper);
-            RUNTIME_CHECK(buf_size == buf->count());
+            ReadBufferFromMemory buf(page.data.begin(), page.data.size());
+            remote_meta.region = Region::deserialize(buf, proxy_helper);
         }
         else
         {
@@ -384,8 +373,9 @@ FastAddPeerRes FastAddPeerImpl(EngineStoreServerWrap * server, uint64_t region_i
         UniversalWriteBatch wb;
         RaftLogReader raft_log_reader(*local_ps);
         raft_log_reader.traverseRaftLogForRegion(region_id, [&](const UniversalPageId & page_id, const DB::Page & page) {
-            auto [buf, buf_size, _] = PS::V3::CheckpointPageManager::getReadBuffer(page, checkpoint_data_dir);
-            wb.putPage(page_id, 0, buf, buf_size);
+            MemoryWriteBuffer write_buf;
+            write_buf.write(page.data.begin(), page.data.size());
+            wb.putPage(page_id, 0, write_buf.tryGetReadBuffer(), page.data.size());
         });
         wn_ps->write(std::move(wb));
 

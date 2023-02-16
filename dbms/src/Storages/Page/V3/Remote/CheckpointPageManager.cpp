@@ -26,27 +26,16 @@ UniversalPageStoragePtr CheckpointPageManager::createTempPageStorage(Context & c
     auto reader = CheckpointManifestFileReader<PageDirectoryTrait>::create(CheckpointManifestFileReader<PageDirectoryTrait>::Options{
         .file_path = checkpoint_manifest_path});
     auto t_edit = reader->read();
-    const auto & records = t_edit.getRecords();
+    auto & records = t_edit.getMutRecords();
     UniversalWriteBatch wb;
     // insert delete records at last
     PageEntriesEdit<UniversalPageId>::EditRecords ref_records;
     PageEntriesEdit<UniversalPageId>::EditRecords delete_records;
-    for (const auto & record : records)
+    for (auto & record : records)
     {
         if (record.type == EditRecordType::VAR_ENTRY)
         {
-            const auto & location = record.entry.remote_info->data_location;
-            MemoryWriteBuffer buf;
-            writeStringBinary(*location.data_file_id, buf);
-            writeIntBinary(location.offset_in_file, buf);
-            writeIntBinary(location.size_in_file, buf);
-            auto field_sizes = Page::fieldOffsetsToSizes(record.entry.field_offsets, location.size_in_file);
-            writeIntBinary(field_sizes.size(), buf);
-            for (size_t i = 0; i < field_sizes.size(); i++)
-            {
-                writeIntBinary(field_sizes[i], buf);
-            }
-            wb.putPage(record.page_id, record.entry.tag, buf.tryGetReadBuffer(), buf.count());
+            wb.putRemotePage(record.page_id, record.entry.tag, record.entry.remote_info->data_location, std::move(record.entry.field_offsets));
         }
         else if (record.type == EditRecordType::VAR_REF)
         {
@@ -78,33 +67,5 @@ UniversalPageStoragePtr CheckpointPageManager::createTempPageStorage(Context & c
     }
     local_ps->write(std::move(wb));
     return local_ps;
-}
-
-std::tuple<ReadBufferPtr, size_t, PageFieldSizes> CheckpointPageManager::getReadBuffer(const Page & page, const String & data_dir)
-{
-    RUNTIME_CHECK(page.isValid());
-    RUNTIME_CHECK(endsWith(data_dir, "/"));
-    String data_path;
-    UInt64 offset;
-    UInt64 size;
-    PageFieldSizes field_sizes;
-    {
-        ReadBufferFromMemory page_buf(page.data.begin(), page.data.size());
-        readStringBinary(data_path, page_buf);
-        readIntBinary(offset, page_buf);
-        readIntBinary(size, page_buf);
-        UInt64 field_count;
-        readIntBinary(field_count, page_buf);
-        for (size_t i = 0; i < field_count; i++)
-        {
-            UInt64 f_size;
-            readIntBinary(f_size, page_buf);
-            field_sizes.push_back(f_size);
-        }
-        RUNTIME_CHECK(page_buf.eof());
-    }
-    auto buf = std::make_shared<ReadBufferFromFile>(data_dir + data_path);
-    buf->seek(offset);
-    return std::make_tuple(buf, size, field_sizes);
 }
 } // namespace DB::PS::V3

@@ -30,6 +30,8 @@
 #include <Storages/Page/WriteBatch.h>
 #include <Storages/PathPool.h>
 
+#include <Storages/Page/universal/RemotePageReader.h>
+
 #include <mutex>
 #include <unordered_map>
 
@@ -118,6 +120,8 @@ private:
 #endif
 
     PSDiskDelegatorPtr delegator;
+
+    RemotePageReaderPtr remote_page_reader;
 
     FileProviderPtr file_provider;
     BlobConfig config;
