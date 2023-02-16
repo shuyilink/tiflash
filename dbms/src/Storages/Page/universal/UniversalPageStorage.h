@@ -76,6 +76,7 @@ public:
         String name,
         PSDiskDelegatorPtr delegator,
         const PageStorageConfig & config,
+        const String & remote_dir,
         const FileProviderPtr & file_provider);
 
     UniversalPageStorage(

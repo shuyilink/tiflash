@@ -29,6 +29,7 @@ UniversalPageStoragePtr UniversalPageStorage::create(
     String name,
     PSDiskDelegatorPtr delegator,
     const PageStorageConfig & config,
+    const String & remote_dir,
     const FileProviderPtr & file_provider)
 {
     UniversalPageStoragePtr storage = std::make_shared<UniversalPageStorage>(name, delegator, config, file_provider);
@@ -36,7 +37,8 @@ UniversalPageStoragePtr UniversalPageStorage::create(
         name,
         file_provider,
         delegator,
-        PS::V3::BlobConfig::from(config));
+        PS::V3::BlobConfig::from(config),
+        remote_dir);
     return storage;
 }
 

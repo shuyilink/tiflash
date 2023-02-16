@@ -50,7 +50,7 @@ template <typename Trait>
 class BlobStore : private Allocator<false>
 {
 public:
-    BlobStore(String storage_name, const FileProviderPtr & file_provider_, PSDiskDelegatorPtr delegator_, const BlobConfig & config);
+    BlobStore(String storage_name, const FileProviderPtr & file_provider_, PSDiskDelegatorPtr delegator_, const BlobConfig & config, const String & remote_dir = "");
 
     void registerPaths();
 

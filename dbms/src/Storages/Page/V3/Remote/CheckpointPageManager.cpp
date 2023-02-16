@@ -12,7 +12,6 @@ static std::atomic<int64_t> local_ps_num = 0;
 
 UniversalPageStoragePtr CheckpointPageManager::createTempPageStorage(Context & context, const String & checkpoint_manifest_path, const String & data_dir)
 {
-    UNUSED(data_dir);
     auto file_provider = context.getFileProvider();
     PageStorageConfig config;
     auto num = local_ps_num.fetch_add(1, std::memory_order_relaxed);
@@ -20,6 +19,7 @@ UniversalPageStoragePtr CheckpointPageManager::createTempPageStorage(Context & c
         "local",
         context.getPathPool().getPSDiskDelegatorGlobalMulti(fmt::format("local_{}", num)),
         config,
+        data_dir,
         file_provider);
     local_ps->restore();
 

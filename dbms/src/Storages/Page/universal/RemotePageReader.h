@@ -11,7 +11,7 @@ namespace DB
 class RemotePageReader : private Allocator<false>
 {
 public:
-    explicit RemotePageReader(String remote_directory_)
+    explicit RemotePageReader(const String & remote_directory_)
         :remote_directory(remote_directory_)
     {}
 

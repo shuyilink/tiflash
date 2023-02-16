@@ -72,8 +72,9 @@ using ChecksumClass = Digest::CRC64;
   *********************/
 
 template <typename Trait>
-BlobStore<Trait>::BlobStore(String storage_name, const FileProviderPtr & file_provider_, PSDiskDelegatorPtr delegator_, const BlobConfig & config_)
+BlobStore<Trait>::BlobStore(String storage_name, const FileProviderPtr & file_provider_, PSDiskDelegatorPtr delegator_, const BlobConfig & config_, const String & remote_dir)
     : delegator(std::move(delegator_))
+    , remote_page_reader(remote_dir.empty() ? nullptr : std::make_shared<RemotePageReader>(remote_dir))
     , file_provider(file_provider_)
     , config(config_)
     , log(Logger::get(storage_name))
