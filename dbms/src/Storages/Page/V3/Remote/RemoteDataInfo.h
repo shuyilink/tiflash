@@ -59,6 +59,6 @@ struct RemoteDataInfo
      * Whether the PageEntry's local BlobData has been reclaimed.
      * If the data is reclaimed, you can only read out its data from the remote.
      */
-    std::atomic<bool> is_local_data_reclaimed = false;
+    bool is_local_data_reclaimed = false;
 };
 }

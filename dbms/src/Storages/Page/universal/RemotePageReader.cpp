@@ -28,6 +28,7 @@ Page RemotePageReader::read(const PS::V3::RemoteDataLocation & location, const P
 
 Page RemotePageReader::read(const PS::V3::RemoteDataLocation & location, const PS::V3::PageEntryV3 & page_entry, std::vector<size_t> fields)
 {
+    UNUSED(location, page_entry, fields);
     throw Exception("not implemented", ErrorCodes::NOT_IMPLEMENTED);
 //    auto buf = std::make_shared<ReadBufferFromFile>(remote_directory + *location.data_file_id);
 //    buf->seek(location.offset_in_file);
@@ -62,7 +63,7 @@ Page RemotePageReader::read(const PS::V3::RemoteDataLocation & location, const P
 //        read_size_this_entry += size_to_read;
 //        write_offset += size_to_read;
 //    }
-    return page;
+//    return page;
 }
 
 }

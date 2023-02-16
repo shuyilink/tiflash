@@ -447,6 +447,7 @@ Segment::SegmentMetaInfos Segment::restoreAllSegmentsMetaInfo( //
     UniversalPageStoragePtr temp_ps,
     const PS::V3::CheckpointInfo & checkpoint_info)
 {
+    UNUSED(checkpoint_info);
     PageId target_segment_id = 1;
     SegmentMetaInfos segment_infos;
     while (target_segment_id != 0)

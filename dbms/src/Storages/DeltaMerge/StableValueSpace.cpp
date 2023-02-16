@@ -201,7 +201,6 @@ StableValueSpacePtr StableValueSpace::restoreFromCheckpoint( //
     stable->valid_bytes = valid_bytes;
 
     stable->saveMeta(wbs.meta);
-    RUNTIME_CHECK(buf->count(), buf_size);
 
     return stable;
 }

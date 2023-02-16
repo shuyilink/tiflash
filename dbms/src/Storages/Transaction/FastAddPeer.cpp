@@ -145,7 +145,7 @@ std::optional<RemoteMeta> fetchRemotePeerMeta(Context & context, const std::stri
         auto page = local_ps->read(apply_state_key, nullptr, {}, /* throw_on_not_exist */ false);
         if (page.isValid())
         {
-            remote_meta.apply_state.ParseFromArray(page.data.begin(), page.data.size()));
+            remote_meta.apply_state.ParseFromArray(page.data.begin(), page.data.size());
         }
         else
         {
