@@ -80,6 +80,8 @@ public:
 
     grpc::Status Compact(grpc::ServerContext * grpc_context, const kvrpcpb::CompactRequest * request, kvrpcpb::CompactResponse * response) override;
 
+    grpc::Status FillMaterializedView(grpc::ServerContext * context, const mpp::FillMaterializedViewRequest * request, mpp::FillMaterializedViewResponse * response) override;
+
     void setMockStorage(MockStorage & mock_storage_);
     void setMockMPPServerInfo(MockMPPServerInfo & mpp_test_info_);
     Context * getContext() { return context; }

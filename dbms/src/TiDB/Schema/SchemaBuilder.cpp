@@ -43,7 +43,11 @@
 #include <TiDB/Schema/SchemaNameMapper.h>
 #include <common/logger_useful.h>
 
+#include <Storages/Transaction/Types.h>
+#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <optional>
 #include <tuple>
 
 namespace DB
@@ -1000,6 +1004,79 @@ parseColumnsFromTableInfo(const TiDB::TableInfo & table_info)
     return std::make_tuple(std::move(columns), std::move(primary_keys));
 }
 
+Strings parseKeyColumnsFromTableInfo(const TiDB::TableInfo & table_info)
+{
+    Strings key_columns;
+    key_columns.reserve(table_info.columns.size());
+    for (const auto & column : table_info.columns)
+    {
+        if (!column.hasAggregateType())
+            key_columns.emplace_back(column.name);
+    }
+    return key_columns;
+}
+
+void appendMateriazliedViewStmt(const TableInfo & table_info,
+                                const SchemaNameMapper & name_mapper,
+                                WriteBufferFromString & stmt_buf)
+{
+    writeString(" AS SELECT ", stmt_buf);
+    for (size_t idx = 0;  idx < table_info.columns.size(); ++idx)
+    {
+        const auto & column_info = table_info.columns[idx];
+        if (idx > 0)
+            writeString(", ", stmt_buf);
+        if (column_info.hasAggregateType())
+        {
+            const auto & agg_info = column_info.agg_info;
+            writeString(TiDB::ColumnInfo::aggMethodToStr(agg_info->agg_kind), stmt_buf);
+            writeString("(", stmt_buf);
+            if (agg_info->separator.empty())
+            {
+                writeString(column_info.name, stmt_buf);
+            }
+            else
+            {
+                std::vector<std::string> pair;
+                boost::split(pair, column_info.name, boost::is_any_of(agg_info->separator));
+                if (pair.size() != 2)
+                    throw TiFlashException(fmt::format("column[{}] has invalid separator", column_info.name), 
+                                           Errors::DDL::Internal);
+                writeString("toUnixTimestamp(toString(" + pair[0] + "))", stmt_buf);
+                writeAnyQuotedString<' '>(agg_info->separator, stmt_buf);
+                writeString("toUnixTimestamp(toString(" + pair[1] + "))", stmt_buf);
+            }
+            writeString(")", stmt_buf);
+        }
+        else
+        {
+            writeBackQuotedString(column_info.name, stmt_buf);
+        }
+    }
+    const auto & mv_info = table_info.mv_info; 
+    writeString(" FROM ", stmt_buf);
+    writeBackQuotedString(name_mapper.mapBaseDatabaseName(mv_info.value()), stmt_buf);
+    writeString(".", stmt_buf);
+    writeBackQuotedString(name_mapper.mapBaseTableeName(mv_info.value()), stmt_buf);
+
+    // add where condition
+    if (!mv_info->where_desc.empty())
+    {
+        writeString(" ", stmt_buf);
+        writeString(mv_info->where_desc, stmt_buf);
+        writeString("  ", stmt_buf);
+    }
+
+    Strings key_columns = parseKeyColumnsFromTableInfo(table_info);
+    writeString(" GROUP BY ", stmt_buf);
+    for (size_t i = 0; i < key_columns.size(); i++)
+    {
+        if (i > 0)
+            writeString(", ", stmt_buf);
+        writeBackQuotedString(key_columns[i], stmt_buf);
+    }
+}
+
 String createTableStmt(
     const DBInfo & db_info,
     const TableInfo & table_info,
@@ -1038,12 +1115,15 @@ String createTableStmt(
         writeString("), '", stmt_buf);
         writeEscapedString(table_info.serialize(), stmt_buf);
         writeString("')", stmt_buf);
+        if (table_info.mv_info != std::nullopt)
+            appendMateriazliedViewStmt(table_info, name_mapper, stmt_buf);
     }
     else
     {
         throw TiFlashException(fmt::format("Unknown engine type : {}", static_cast<int32_t>(table_info.engine_type)), Errors::DDL::Internal);
     }
 
+    stmt_buf.finalize();
     return stmt;
 }
 

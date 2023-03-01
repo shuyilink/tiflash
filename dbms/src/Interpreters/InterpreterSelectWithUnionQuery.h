@@ -17,6 +17,9 @@
 #include <Core/QueryProcessingStage.h>
 #include <Interpreters/Context.h>
 #include <Interpreters/IInterpreter.h>
+#include <Storages/RegionQueryInfo.h>
+
+#include <optional>
 
 
 namespace DB
@@ -43,6 +46,8 @@ public:
     /// Execute the query without union of streams.
     BlockInputStreams executeWithMultipleStreams();
 
+    InterpreterSelectWithUnionQuery & setRegionsQueryInfo(std::optional<MvccQueryInfo::RegionsQueryInfo> regions_query_info_);
+
     Block getSampleBlock();
 
     static Block getSampleBlock(
@@ -60,6 +65,7 @@ private:
     std::vector<std::unique_ptr<InterpreterSelectQuery>> nested_interpreters;
 
     Block result_header;
+    std::optional<MvccQueryInfo::RegionsQueryInfo> regions_query_info = std::nullopt;
 };
 
 } // namespace DB

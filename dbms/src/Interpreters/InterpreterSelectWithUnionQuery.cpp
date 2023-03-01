@@ -187,12 +187,19 @@ Block InterpreterSelectWithUnionQuery::getSampleBlock(
 }
 
 
+InterpreterSelectWithUnionQuery & InterpreterSelectWithUnionQuery::setRegionsQueryInfo(std::optional<MvccQueryInfo::RegionsQueryInfo> regions_query_info_)
+{
+    regions_query_info = std::move(regions_query_info_);
+    return *this;
+}
+
 BlockInputStreams InterpreterSelectWithUnionQuery::executeWithMultipleStreams()
 {
     BlockInputStreams nested_streams;
 
     for (auto & interpreter : nested_interpreters)
     {
+        interpreter->setRegionsQueryInfo(regions_query_info);
         BlockInputStreams streams = interpreter->executeWithMultipleStreams();
         nested_streams.insert(nested_streams.end(), streams.begin(), streams.end());
     }

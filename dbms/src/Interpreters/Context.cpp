@@ -130,6 +130,7 @@ struct ContextShared
     ConfigurationPtr config; /// Global configuration settings.
 
     Databases databases; /// List of databases and tables in them.
+    std::set<std::pair<String, String>> paritions_completed_mv;
     FormatFactory format_factory; /// Formats.
     String default_profile_name; /// Default profile name used for default values.
     String system_profile_name; /// Profile used by system processes
@@ -673,6 +674,21 @@ void Context::checkDatabaseAccessRightsImpl(const std::string & database_name) c
     }
     if (!shared->security_manager->hasAccessToDatabase(client_info.current_user, database_name))
         throw Exception(fmt::format("Access denied to database {}", database_name), ErrorCodes::DATABASE_ACCESS_DENIED);
+}
+
+void Context::setPartitionMvCompleted(const String & db_name, const String & tbl_name)
+{
+    shared->paritions_completed_mv.emplace(db_name, tbl_name);
+}
+
+void Context::setPartitionMvImcompleted(const String & db_name, const String & tbl_name)
+{
+    shared->paritions_completed_mv.erase(std::make_pair(db_name, tbl_name));
+}
+
+bool Context::hasPartitionMvCompleted(const String &db_name, const String &tbl_name)
+{
+    return shared->paritions_completed_mv.count(std::make_pair(db_name, tbl_name)) != 0;
 }
 
 void Context::addDependency(const DatabaseAndTableName & from, const DatabaseAndTableName & where)

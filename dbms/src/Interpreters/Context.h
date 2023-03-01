@@ -227,6 +227,9 @@ public:
     void setQuota(const String & name, const String & quota_key, const String & user_name, const Poco::Net::IPAddress & address);
     QuotaForIntervals & getQuota();
 
+    void setPartitionMvCompleted(const String & db_name, const String & tbl_name);
+    void setPartitionMvImcompleted(const String & db_name, const String & tbl_name);
+    bool hasPartitionMvCompleted(const String & db_name, const String & tbl_name);
     void addDependency(const DatabaseAndTableName & from, const DatabaseAndTableName & where);
     void removeDependency(const DatabaseAndTableName & from, const DatabaseAndTableName & where);
     Dependencies getDependencies(const String & database_name, const String & table_name) const;

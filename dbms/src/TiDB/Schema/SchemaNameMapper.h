@@ -27,8 +27,10 @@ struct SchemaNameMapper
     static constexpr auto DATABASE_PREFIX = "db_";
     static constexpr auto TABLE_PREFIX = "t_";
 
+    virtual String mapBaseDatabaseName(const TiDB::TableInfo::MvTableInfo & mv_info) const { return DATABASE_PREFIX + std::to_string(mv_info.base_db_id); }
     virtual String mapDatabaseName(const TiDB::DBInfo & db_info) const { return DATABASE_PREFIX + std::to_string(db_info.id); }
     virtual String displayDatabaseName(const TiDB::DBInfo & db_info) const { return db_info.name; }
+    virtual String mapBaseTableeName(const TiDB::TableInfo::MvTableInfo & mv_info) const { return TABLE_PREFIX + std::to_string(mv_info.base_tbl_id); }
     virtual String mapTableName(const TiDB::TableInfo & table_info) const { return TABLE_PREFIX + std::to_string(table_info.id); }
     virtual String displayTableName(const TiDB::TableInfo & table_info) const { return table_info.name; }
     virtual String mapPartitionName(const TiDB::TableInfo & table_info) const { return mapTableName(table_info); }

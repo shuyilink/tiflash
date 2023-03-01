@@ -282,6 +282,12 @@ bool ParserCreateQuery::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
 
             if (!storage_p.parse(pos, storage, expected) && !is_temporary)
                 return false;
+
+            if (s_as.ignore(pos, expected))
+            {
+               if (!select_p.parse(pos, select, expected))
+                return false;
+            }
         }
         else
         {

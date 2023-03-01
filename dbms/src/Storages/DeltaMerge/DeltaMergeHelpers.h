@@ -24,6 +24,7 @@
 #include <Functions/FunctionHelpers.h>
 #include <IO/WriteHelpers.h>
 #include <Interpreters/sortBlock.h>
+#include <Parsers/ASTSelectWithUnionQuery.h>
 #include <Storages/ColumnsDescription.h>
 #include <Storages/DeltaMerge/DeltaMergeDefines.h>
 #include <Storages/Transaction/TiDB.h>
@@ -288,5 +289,6 @@ inline std::pair<size_t, size_t> locatePosByAccumulation(const std::vector<size_
     }
 }
 
+ASTPtr addRowIdColumnToSelectQuery(ASTPtr select_ast);
 } // namespace DM
 } // namespace DB

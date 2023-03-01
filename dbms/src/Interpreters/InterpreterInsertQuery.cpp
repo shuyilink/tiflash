@@ -27,6 +27,7 @@
 #include <Parsers/ASTIdentifier.h>
 #include <Parsers/ASTInsertQuery.h>
 #include <Parsers/ASTSelectWithUnionQuery.h>
+#include <Storages/DeltaMerge/DeltaMergeHelpers.h>
 #include <Storages/MutableSupport.h>
 #include <TableFunctions/TableFunctionFactory.h>
 
@@ -100,6 +101,11 @@ Block InterpreterInsertQuery::getSampleBlock(const ASTInsertQuery & query, const
     return res;
 }
 
+InterpreterInsertQuery & InterpreterInsertQuery::setRegionsQueryInfo(MvccQueryInfo::RegionsQueryInfo regions_query_info_)
+{
+    regions_query_info = std::move(regions_query_info_);
+    return *this;
+}
 
 BlockIO InterpreterInsertQuery::execute()
 {
@@ -147,13 +153,13 @@ BlockIO InterpreterInsertQuery::execute()
     if (query.select)
     {
         /// Passing 1 as subquery_depth will disable limiting size of intermediate result.
-        InterpreterSelectWithUnionQuery interpreter_select{query.select, context, {}, QueryProcessingStage::Complete, 1};
+        InterpreterSelectWithUnionQuery interpreter_select{DM::addRowIdColumnToSelectQuery(query.select), context, {}, QueryProcessingStage::Complete, 1};
 
-        res.in = interpreter_select.execute().in;
+        res.in = interpreter_select.setRegionsQueryInfo(std::move(regions_query_info)).execute().in;
 
         res.in = std::make_shared<ConvertingBlockInputStream>(context, res.in, res.out->getHeader(), ConvertingBlockInputStream::MatchColumnsMode::Position);
         res.in = std::make_shared<NullAndDoCopyBlockInputStream>(res.in, res.out);
-
+        res.in->read();
         res.out = nullptr;
 
         if (!allow_materialized)
