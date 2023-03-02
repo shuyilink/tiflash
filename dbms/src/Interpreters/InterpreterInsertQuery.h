@@ -19,6 +19,9 @@
 #include <Interpreters/Context.h>
 #include <Interpreters/IInterpreter.h>
 #include <Parsers/ASTInsertQuery.h>
+#include <Storages/RegionQueryInfo.h>
+
+#include <optional>
 
 namespace DB
 {
@@ -35,6 +38,7 @@ public:
       * Or nothing if the request INSERT SELECT (self-sufficient query - does not accept the input data, does not return the result).
       */
     BlockIO execute() override;
+    InterpreterInsertQuery & setRegionsQueryInfo(MvccQueryInfo::RegionsQueryInfo regions_query_info_);
 
 private:
     StoragePtr getTable(const ASTInsertQuery & query);
@@ -44,6 +48,7 @@ private:
     ASTPtr query_ptr;
     const Context & context;
     bool allow_materialized;
+    std::optional<MvccQueryInfo::RegionsQueryInfo> regions_query_info = std::nullopt;
 };
 
 

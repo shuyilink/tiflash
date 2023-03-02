@@ -23,6 +23,7 @@
 #include <tipb/schema.pb.h>
 
 #include <optional>
+#include "common/types.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -178,6 +179,9 @@ struct ColumnInfo
 
     void deserialize(Poco::JSON::Object::Ptr json);
 
+    bool hasAggregateType() const;
+    static const char * aggMethodToStr(DB::AGG agg_kind);
+
     ColumnID id = -1;
     String name;
     Poco::Dynamic::Var origin_default_value;
@@ -193,6 +197,14 @@ struct ColumnInfo
     std::vector<std::pair<std::string, Int16>> elems;
     SchemaState state = StateNone;
     String comment;
+
+    struct AggregateInfo {
+        bool is_partition_key = false;
+        DB::AGG agg_kind = DB::AGG::Invalid;
+        DB::OP op = DB::OP::Invalid;
+        String separator;
+    };
+    std::optional<AggregateInfo> agg_info = std::nullopt;
 
 #ifdef M
 #error "Please undefine macro M first."
@@ -391,6 +403,13 @@ struct TableInfo
 
     // The TiFlash replica info persisted by TiDB
     TiFlashReplicaInfo replica_info;
+
+    struct MvTableInfo {
+        DatabaseID base_db_id = DB::InvalidDBID;
+        TableID base_tbl_id = DB::InvalidTableID;
+        String where_desc;
+    };
+    std::optional<MvTableInfo> mv_info = std::nullopt;
 
     ::TiDB::StorageEngine engine_type = ::TiDB::StorageEngine::UNSPECIFIED;
 

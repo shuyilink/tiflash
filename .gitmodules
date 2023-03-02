@@ -22,9 +22,6 @@
 [submodule "contrib/boost"]
 	path = contrib/boost
 	url = https://github.com/pingcap/boost-extra.git
-[submodule "contrib/kvproto"]
-	path = contrib/kvproto
-	url = https://github.com/pingcap/kvproto.git
 [submodule "contrib/tipb"]
 	path = contrib/tipb
 	url = https://github.com/pingcap/tipb.git
@@ -92,3 +89,6 @@
 [submodule "contrib/GmSSL"]
 	path = contrib/GmSSL
 	url = https://github.com/guanzhi/GmSSL.git
+[submodule "contrib/kvproto"]
+	path = contrib/kvproto
+	url = https://github.com/szza/kvproto.git

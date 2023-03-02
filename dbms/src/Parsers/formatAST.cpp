@@ -25,4 +25,12 @@ void formatAST(const IAST & ast, std::ostream & s, bool hilite, bool one_line)
     ast.format(settings);
 }
 
+String formatAST(const IAST & ast, bool one_line)
+{
+    std::ostringstream statement_stream;
+    formatAST(ast, statement_stream, one_line);
+    statement_stream << '\n';
+    return statement_stream.str();
+}
+
 }

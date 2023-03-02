@@ -60,8 +60,8 @@ String getTableDefinitionFromCreateQuery(const ASTPtr & query)
     create.is_populate = false;
 
     /// For views it is necessary to save the SELECT query itself, for the rest - on the contrary
-    if (!create.is_view && !create.is_materialized_view)
-        create.select = nullptr;
+    // if (!create.is_view && !create.is_materialized_view)
+    //     create.select = nullptr;
 
     create.format = nullptr;
     create.out_file = nullptr;
