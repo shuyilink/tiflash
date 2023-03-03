@@ -20,9 +20,11 @@
 #include <Interpreters/ExpressionActions.h>
 #include <Interpreters/ExpressionAnalyzer.h>
 #include <Interpreters/IInterpreter.h>
+#include <Storages/RegionQueryInfo.h>
 #include <Storages/Transaction/Types.h>
 
 #include <memory>
+#include <optional>
 
 namespace DB
 {
@@ -67,6 +69,8 @@ public:
 
     ~InterpreterSelectQuery();
 
+    InterpreterSelectQuery & setRegionsQueryInfo(const std::optional<MvccQueryInfo::RegionsQueryInfo> & regions_query_info);
+
     /// Execute a query. Get the stream of blocks to read.
     BlockIO execute() override;
 
@@ -82,6 +86,8 @@ public:
     void ignoreWithTotals();
 
 private:
+    MvccQueryInfo::RegionsQueryInfo makeDummyRegionsQueryInfo();
+
     struct Pipeline
     {
         /** Streams of data.
@@ -211,6 +217,7 @@ private:
     /// The object was created only for query analysis.
     bool only_analyze = false;
 
+    std::optional<MvccQueryInfo::RegionsQueryInfo> regions_query_info = std::nullopt;
     /// Table from where to read data, if not subquery.
     StoragePtr storage;
     TableLockHolder table_lock;

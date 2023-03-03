@@ -370,6 +370,12 @@ try
     json->set("state", static_cast<Int32>(state));
     json->set("comment", comment);
 
+    if (agg_info != std::nullopt)
+    {
+        json->set("aggregate_kind", static_cast<UInt32>(agg_info->agg_kind));
+        json->set("op", static_cast<UInt32>(agg_info->op));
+        json->set("is_partition_key", agg_info->is_partition_key);
+    }
 #ifndef NDEBUG
     // Check stringify in Debug mode
     std::stringstream str;
@@ -385,6 +391,21 @@ catch (const Poco::Exception & e)
         DB::Exception(e));
 }
 
+const char * ColumnInfo::aggMethodToStr(DB::AGG agg_kind)
+{
+    if (agg_kind >= DB::AGG::Invalid)
+        return nullptr;
+
+    static const char * kinds [] = {"sum", "min", "max"};
+
+    return kinds[static_cast<int8_t>(agg_kind)];
+}
+
+bool ColumnInfo::hasAggregateType() const
+{
+    return !agg_info && agg_info->agg_kind < DB::AGG::Invalid;
+}
+
 void ColumnInfo::deserialize(Poco::JSON::Object::Ptr json)
 try
 {
@@ -397,6 +418,26 @@ try
         default_value = json->get("default");
     if (!json->isNull("default_bit"))
         default_bit_value = json->get("default_bit");
+    if (!json->isNull("aggregate_kind") || !json->isNull("is_partition_key"))
+    {
+        AggregateInfo info;
+        if (!json->isNull("is_partition_key") && json->getValue<bool>("is_partition_key"))
+        {
+            info.is_partition_key = true;
+            info.agg_kind = DB::AGG::MAX;
+        }
+        else
+        {
+            info.is_partition_key = false;
+            info.agg_kind = static_cast<DB::AGG>(json->getValue<UInt32>("aggregate_kind"));
+        }
+        info.op = static_cast<DB::OP>(json->getValue<UInt32>("op"));
+        if (info.op == DB::OP::Minus)
+        {
+            info.separator = '-';
+        }
+        agg_info = std::move(info);
+    }
     auto type_json = json->getObject("type");
     tp = static_cast<TP>(type_json->getValue<Int32>("Tp"));
     flag = type_json->getValue<UInt32>("Flag");
@@ -842,6 +883,13 @@ try
 
     json->set("tiflash_replica", replica_info.getJSONObject());
 
+    if (mv_info.has_value())
+    {
+        json->set("is_materialized_view", true);
+        json->set("base_db_id", mv_info->base_db_id);
+        json->set("base_table_id", mv_info->base_tbl_id);
+        json->set("where_desc", mv_info->where_desc);
+    }
     json->stringify(buf);
 
     return buf.str();
@@ -916,6 +964,14 @@ try
     if (obj->has("view") && !obj->getObject("view").isNull())
     {
         is_view = true;
+    }
+    if (obj->has("is_materialized_view"))
+    {
+        MvTableInfo info;
+        info.where_desc = obj->getValue<String>("where_desc");
+        info.base_db_id = obj->getValue<DatabaseID>("base_db_id");
+        info.base_tbl_id = obj->getValue<TableID>("base_table_id");
+        mv_info = std::move(info);
     }
     if (obj->has("sequence") && !obj->getObject("sequence").isNull())
     {

@@ -31,6 +31,36 @@ enum : TableID
 
 using DatabaseID = Int64;
 
+enum : DatabaseID
+{
+    InvalidDBID = -1,
+};
+
+enum class AGG {
+    SUM,
+    MIN,
+    MAX,
+
+    Invalid
+};
+
+enum class OP {
+    None = 0,
+    LogicAnd,
+    LeftShift,
+    RightShift,
+    LogicOr,
+    GE,
+    LE,
+    EQ,
+    NE,
+    LT,
+    GT,
+    Plus,
+    Minus,
+    Invalid,
+};
+
 using ColumnID = Int64;
 
 enum : ColumnID

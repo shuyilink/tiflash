@@ -13,7 +13,12 @@
 // limitations under the License.
 
 #include <Functions/FunctionsConversion.h>
+#include <Parsers/formatAST.h>
+#include <Parsers/ParserSelectWithUnionQuery.h>
+#include <Parsers/parseQuery.h>
 #include <Storages/DeltaMerge/DeltaMergeHelpers.h>
+
+#include <string_view>
 
 namespace DB
 {
@@ -114,5 +119,31 @@ void appendIntoHandleColumn(ColumnVector<Handle>::Container & handle_column, con
 #undef APPEND
 }
 
+using namespace std::string_literals;
+
+ASTPtr addRowIdColumnToSelectQuery(ASTPtr select_ast)
+{
+    if (!select_ast) return nullptr;
+
+    std::string new_select_query;
+    std::string extra_column_stmt = ", max(`"s + EXTRA_HANDLE_COLUMN_NAME + "`) ";
+
+    std::ostringstream stmt_stream;
+    formatAST(select_ast, stmt_stream, false, false);
+    stmt_stream << '\n';
+    select_query = stmt_stream.str();
+
+    std::string_view keyword = "FROM";
+    size_t pos = select_query.find(keyword);
+    new_select_query.append(select_query.substr(0, pos));
+    new_select_query.append(extra_column_stmt);
+    new_select_query.append(select_query.substr(pos));
+    ParserSelectWithUnionQuery parser;
+    return parseQuery(parser,
+                      new_select_query.data(),
+                      new_select_query.data() + new_select_query.size(),
+                      "create new select query",
+                      0);
+}
 } // namespace DM
 } // namespace DB

@@ -28,9 +28,14 @@
 #include <Flash/Mpp/Utils.h>
 #include <Flash/ServiceUtils.h>
 #include <Interpreters/Context.h>
+#include <Interpreters/InterpreterInsertQuery.h>
+#include <Parsers/ASTCreateQuery.h>
+#include <Parsers/ASTInsertQuery.h>
 #include <Server/IServer.h>
+#include <Storages/StorageDeltaMerge.h>
 #include <Storages/IManageableStorage.h>
 #include <Storages/Transaction/TMTContext.h>
+#include <TiDB/Schema/SchemaSyncer.h>
 #include <grpcpp/server_builder.h>
 
 #include <ext/scope_guard.h>
@@ -475,5 +480,120 @@ void FlashService::setMockStorage(MockStorage & mock_storage_)
 void FlashService::setMockMPPServerInfo(MockMPPServerInfo & mpp_test_info_)
 {
     mpp_test_info = mpp_test_info_;
+}
+
+MvccQueryInfo::RegionsQueryInfo makeRegionsQueryInfo(TableID base_table_id,
+                                                     const ::coprocessor::TableRegions & table_regions,
+                                                     const Context & context [[maybe_unused]])
+{
+    if (table_regions.physical_table_id() != base_table_id)
+        throw DB::Exception(fmt::format(
+            "physical_table_id[{}] not match the base_table_id[{}]",
+            table_regions.physical_table_id(), base_table_id));
+
+    MvccQueryInfo::RegionsQueryInfo regions_info;
+
+    regions_info.reserve(table_regions.regions_size());
+    for (const auto & region_info: table_regions.regions())
+    {
+        const auto & epoch = region_info.region_epoch();
+        RegionQueryInfo region_query_info(region_info.region_id(), epoch.version(), epoch.conf_ver(), base_table_id);
+
+        region_query_info.required_handle_ranges.reserve(region_info.ranges_size());
+        for (const auto & kv_range : region_info.ranges())
+        {
+            TiKVKey start_key = RecordKVFormat::encodeAsTiKVKey(kv_range.start());
+            TiKVKey end_key = RecordKVFormat::encodeAsTiKVKey(kv_range.end());
+            RegionRangeKeys region_range(std::move(start_key), std::move(end_key));
+            region_query_info.required_handle_ranges.emplace_back(region_range.rawKeys());
+        }
+
+        regions_info.emplace_back(std::move(region_query_info));
+    }
+    return regions_info;
+}
+
+std::string concatenate(const char * prefix, Int64 db_id) {
+    return prefix + std::to_string(db_id);
+}
+
+grpc::Status FlashService::FillMaterializedView(grpc::ServerContext * grpc_context,
+                                                const mpp::FillMaterializedViewRequest * request,
+                                                mpp::FillMaterializedViewResponse * response)
+{
+    auto [db_context, status] = createDBContext(grpc_context);
+    if (unlikely(!status.ok()))
+        return status;
+
+    std::string mv_db_name = concatenate("db_", request->mv_db_id());
+    std::string base_db_name = concatenate("db_", request->base_db_id());
+    std::string mv_table_name = concatenate("t_", request->mv_table_id());
+    std::string base_table_name = concatenate("t_", request->base_table_id());
+
+    try
+    {
+        if (db_context->hasPartitionMvCompleted(mv_db_name, mv_table_name))
+            return status;
+        db_context->setPartitionMvCompleted(mv_db_name, mv_table_name);
+
+        auto & global_context = db_context->getGlobalContext();
+        auto base_storage = std::dynamic_pointer_cast<StorageDeltaMerge>(
+                    db_context->getTable(base_db_name, base_table_name));
+        auto mv_storage = [&](const ContextPtr & context) {
+            StorageDeltaMergePtr inner_mv_storage = nullptr;
+            try
+            {
+               inner_mv_storage = std::dynamic_pointer_cast<StorageDeltaMerge>(
+                    context->getTable(mv_db_name, mv_table_name));
+            }
+            catch(const Exception & e)
+            {
+                context->getTMTContext().getSchemaSyncer()->syncSchemas(global_context);
+                inner_mv_storage = std::dynamic_pointer_cast<StorageDeltaMerge>(
+                    context->getTable(mv_db_name, mv_table_name));
+            }
+            inner_mv_storage->clearData();
+            return inner_mv_storage;
+        }(db_context);
+
+        auto mv_create_query = std::dynamic_pointer_cast<ASTCreateQuery>(
+                db_context->getCreateTableQuery(mv_db_name, mv_table_name));
+        auto insert_query = std::make_shared<ASTInsertQuery>();
+        insert_query->database = mv_db_name;
+        insert_query->table = mv_table_name;
+        insert_query->select = mv_create_query->select->clone();
+        auto regions_query_info = makeRegionsQueryInfo(
+                request->base_table_id(),
+                request->table_regions(),
+                global_context);
+        InterpreterInsertQuery(insert_query, global_context)
+        .setRegionsQueryInfo(std::move(regions_query_info))
+        .execute();
+
+        mv_storage->flushCache(global_context);
+        LOG_DEBUG(log,
+                  "Success to FillMaterializedView: base[{}.{}], mv[{}.{}], table_regions[{}]",
+                  base_db_name, base_table_name, mv_db_name, mv_table_name,
+                  request->table_regions().DebugString());
+        return status;
+    }
+    catch (const Exception & e)
+    {
+        db_context->setPartitionMvImcompleted(mv_db_name, mv_table_name);
+        response->set_error(fmt::format(
+            "Fail to FillMaterializedView: base[{}.{}], mv[{}.{}], message[{}]",
+            base_db_name, base_table_name, mv_db_name, mv_table_name, e.message()));
+        LOG_WARNING(log, response->error());
+        return grpc::Status(grpc::StatusCode::INTERNAL, response->error());
+    }
+    catch (const std::exception & e)
+    {
+        db_context->setPartitionMvImcompleted(mv_db_name, mv_table_name);
+        response->set_error(fmt::format(
+            "Fail to FillMaterializedView: base[{}.{}], mv[{}.{}], what[{}]",
+            base_db_name, base_table_name, mv_db_name, mv_table_name, e.what()));
+        LOG_WARNING(log, response->error());
+        return grpc::Status(grpc::StatusCode::INTERNAL, response->error());
+    }
 }
 } // namespace DB

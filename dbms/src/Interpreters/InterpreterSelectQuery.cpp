@@ -650,6 +650,53 @@ static void getLimitLengthAndOffset(ASTSelectQuery & query, size_t & length, siz
     }
 }
 
+InterpreterSelectQuery & InterpreterSelectQuery::setRegionsQueryInfo(const std::optional<MvccQueryInfo::RegionsQueryInfo> & regions_query_info_)
+{
+    regions_query_info = regions_query_info_;
+    return *this;
+}
+
+MvccQueryInfo::RegionsQueryInfo InterpreterSelectQuery::makeDummyRegionsQueryInfo()
+{
+    MvccQueryInfo::RegionsQueryInfo dummy_region_query_info;
+    const String & request_str = context.getSettingsRef().regions;
+
+    if (!request_str.empty())
+    {
+        auto managed_storage = std::dynamic_pointer_cast<IManageableStorage>(storage);
+        if (!managed_storage)
+            throw Exception("Not supported request on non-manageable storage");
+
+        TableID table_id = managed_storage->getTableInfo().id;
+        Poco::JSON::Parser parser;
+        Poco::Dynamic::Var result = parser.parse(request_str);
+        auto obj = result.extract<Poco::JSON::Object::Ptr>();
+        Poco::Dynamic::Var regions_obj = obj->get("regions");
+        auto arr = regions_obj.extract<Poco::JSON::Array::Ptr>();
+
+        dummy_region_query_info.reserve(arr->size());
+        for (size_t i = 0; i < arr->size(); i++)
+        {
+            auto str = arr->getElement<String>(i);
+            ::metapb::Region region;
+            ::google::protobuf::TextFormat::ParseFromString(str, &region);
+
+            const auto & epoch = region.region_epoch();
+            RegionQueryInfo info(region.id(), epoch.version(), epoch.conf_ver(), table_id);
+
+            // Extract the handle range according to current table
+            TiKVKey start_key = RecordKVFormat::encodeAsTiKVKey(region.start_key());
+            TiKVKey end_key = RecordKVFormat::encodeAsTiKVKey(region.end_key());
+            RegionRangeKeys region_range(std::move(start_key), std::move(end_key));
+            info.range_in_table = region_range.rawKeys();
+            dummy_region_query_info.emplace_back(std::move(info));
+        }
+        if (dummy_region_query_info.empty())
+            throw Exception("[InterpreterSelectQuery::executeFetchColumns] no region query", ErrorCodes::LOGICAL_ERROR);
+    }
+    return dummy_region_query_info;
+}
+
 QueryProcessingStage::Enum InterpreterSelectQuery::executeFetchColumns(Pipeline & pipeline, bool dry_run)
 {
     /// List of columns to read to execute the query.
@@ -806,50 +853,10 @@ QueryProcessingStage::Enum InterpreterSelectQuery::executeFetchColumns(Pipeline 
         query_info.query = query_ptr;
         query_info.sets = query_analyzer->getPreparedSets();
         query_info.mvcc_query_info = std::make_unique<MvccQueryInfo>(settings.resolve_locks, settings.read_tso);
-
-        const String & request_str = settings.regions;
-
-        if (!request_str.empty())
-        {
-            TableID table_id = InvalidTableID;
-            if (auto managed_storage = std::dynamic_pointer_cast<IManageableStorage>(storage); managed_storage)
-            {
-                table_id = managed_storage->getTableInfo().id;
-            }
-            else
-            {
-                throw Exception("Not supported request on non-manageable storage");
-            }
-            Poco::JSON::Parser parser;
-            Poco::Dynamic::Var result = parser.parse(request_str);
-            auto obj = result.extract<Poco::JSON::Object::Ptr>();
-            Poco::Dynamic::Var regions_obj = obj->get("regions");
-            auto arr = regions_obj.extract<Poco::JSON::Array::Ptr>();
-
-            for (size_t i = 0; i < arr->size(); i++)
-            {
-                auto str = arr->getElement<String>(i);
-                ::metapb::Region region;
-                ::google::protobuf::TextFormat::ParseFromString(str, &region);
-
-                const auto & epoch = region.region_epoch();
-                RegionQueryInfo info(region.id(), epoch.version(), epoch.conf_ver(), table_id);
-                if (const auto & managed_storage = std::dynamic_pointer_cast<IManageableStorage>(storage))
-                {
-                    // Extract the handle range according to current table
-                    TiKVKey start_key = RecordKVFormat::encodeAsTiKVKey(region.start_key());
-                    TiKVKey end_key = RecordKVFormat::encodeAsTiKVKey(region.end_key());
-                    RegionRangeKeys region_range(std::move(start_key), std::move(end_key));
-                    info.range_in_table = region_range.rawKeys();
-                }
-                query_info.mvcc_query_info->regions_query_info.push_back(info);
-            }
-
-            if (query_info.mvcc_query_info->regions_query_info.empty())
-                throw Exception("[InterpreterSelectQuery::executeFetchColumns] no region query", ErrorCodes::LOGICAL_ERROR);
-            query_info.mvcc_query_info->concurrent = 0.0;
-        }
-
+        query_info.mvcc_query_info->concurrent = 0.0;
+        query_info.mvcc_query_info->regions_query_info = regions_query_info.has_value() && !regions_query_info->empty()
+            ? std::move(regions_query_info.value())
+            : makeDummyRegionsQueryInfo();
         /// PARTITION SELECT only supports MergeTree family now.
         if (const auto * select_query = typeid_cast<const ASTSelectQuery *>(query_info.query.get()))
         {
