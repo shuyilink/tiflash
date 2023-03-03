@@ -129,9 +129,9 @@ ASTPtr addRowIdColumnToSelectQuery(ASTPtr select_ast)
     std::string extra_column_stmt = ", max(`"s + EXTRA_HANDLE_COLUMN_NAME + "`) ";
 
     std::ostringstream stmt_stream;
-    formatAST(select_ast, stmt_stream, false, false);
+    DB::formatAST(*select_ast, stmt_stream, false, false);
     stmt_stream << '\n';
-    select_query = stmt_stream.str();
+    std::string select_query = stmt_stream.str();
 
     std::string_view keyword = "FROM";
     size_t pos = select_query.find(keyword);
